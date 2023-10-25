@@ -9,6 +9,9 @@ public class UpdateWorld : MonoBehaviour
 
     (int x, int y) _lastPoint = (0, 0);
     (int x, int y) _curPoint;
+    (int x, int y) _lastRaycastPoint;
+    
+    (int w, int h) _textureSize;
 
     Texture2D _texture; //Texture should be set to Read/Write and RGBA32bit in Inspector with no mipmaps
 
@@ -31,14 +34,16 @@ public class UpdateWorld : MonoBehaviour
         // assign to material
         _rendererMaterial.mainTexture = _texture;
 
-        _pixelColors = new Color[_texture.width * _texture.height];
+        _textureSize = (_texture.width, _texture.height);
 
-        Debug.Log($"texture w,h: {_texture.width},{_texture.height}");
+        _pixelColors = new Color[_textureSize.w * _textureSize.h];
+
+        Debug.Log($"texture w,h: {_textureSize.w},{_textureSize.h}");
 
         // store yellow cells using perlin noise to create some patches of "minerals"
-        for (int y = 0; y < _texture.height; y++)
+        for (int y = 0; y < _textureSize.h; y++)
         {
-            for (int x = 0; x < _texture.width; x++)
+            for (int x = 0; x < _textureSize.w; x++)
             {
                 float perlinNoise = Mathf.PerlinNoise(x / 20.0f, y / 20.0f);
 
@@ -57,8 +62,15 @@ public class UpdateWorld : MonoBehaviour
 
     int getColorsIndex(int x, int y)
     {
-        int index = y * _texture.width + x;
+        int index = y * _textureSize.w + x;
         return Math.Clamp(index, 0, _pixelColors.Length - 1);
+    }
+
+    Color getPixelColorAt(int x, int y)
+    {
+        int index = y * _textureSize.w + x;
+        index = Math.Clamp(index, 0, _pixelColors.Length - 1);
+        return _pixelColors[index];
     }
 
     void Update()
@@ -70,8 +82,7 @@ public class UpdateWorld : MonoBehaviour
         {
             if (raycastCurMouse())
             {
-                _lastPoint = ((int)(_ray.textureCoord.x * _texture.width),
-                              (int)(_ray.textureCoord.y * _texture.height));
+                _lastPoint = _lastRaycastPoint;
             }
         }
 
@@ -82,8 +93,7 @@ public class UpdateWorld : MonoBehaviour
             {
                 dirty = true;
 
-                _curPoint = ((int)(_ray.textureCoord.x * _texture.width),
-                             (int)(_ray.textureCoord.y * _texture.height));
+                _curPoint = _lastRaycastPoint;
 
                 DrawPixelLine(_curPoint.x,
                               _curPoint.y,
@@ -91,7 +101,7 @@ public class UpdateWorld : MonoBehaviour
                               _lastPoint.y,
                               Color.black);
 
-                _lastPoint = new(_curPoint.x, _curPoint.y);
+                _lastPoint = _lastRaycastPoint;
             }
         }
 
@@ -101,7 +111,7 @@ public class UpdateWorld : MonoBehaviour
             {
                 dirty = true;
 
-                _pixelColors[getColorsIndex((int)(_ray.textureCoord.x * _texture.width), (int)(_ray.textureCoord.y * _texture.height))] = Color.white;
+                _pixelColors[getColorsIndex(_lastRaycastPoint.x, _lastRaycastPoint.y)] = Color.white;
             }
         }
 
@@ -120,6 +130,10 @@ public class UpdateWorld : MonoBehaviour
     bool raycastCurMouse()
     {
         bool raycast = Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out _ray);
+        if (raycast) {
+            _lastRaycastPoint = ((int)(_ray.textureCoord.x * _textureSize.w),
+                                (int)(_ray.textureCoord.y * _textureSize.h));
+        }
         return raycast;
     }
 
@@ -133,8 +147,9 @@ public class UpdateWorld : MonoBehaviour
             for (int nx = 0 - 1; nx < 2; nx++)
             {
                 if (ny == 0 && nx == 0) continue; //ignore cell you are looking at neighbours
-                if (_pixelColors[getColorsIndex(x + nx, y + ny)] == col)
+                if (getPixelColorAt(x + nx, y + ny).Equals(col)) {
                     count++;
+                }
             }
         }
         return count;
@@ -144,19 +159,20 @@ public class UpdateWorld : MonoBehaviour
     {
         bool dirty = false;
 
-        for (int y = 0; y < _texture.height; y++)
+        for (int y = _lastRaycastPoint.y - 1; y < _lastRaycastPoint.y + 2; y++)
         {
-            for (int x = 0; x < _texture.width; x++)
+            for (int x = _lastRaycastPoint.x - 1; x < _lastRaycastPoint.x + 2; x++)
             {
                 int blackNeibors = CountNeighbourColor(x, y, Color.black);
-                Color curPxColor = _pixelColors[getColorsIndex(x, y)];
+                int curPixelIndex = getColorsIndex(x, y);
+                Color curPxColor = _pixelColors[curPixelIndex];
 
                 if (blackNeibors > 4)
                 {
                     //if a cell has more than 4 black neighbours make it blue
                     //Commercial Property
                     dirty = true;
-                    _pixelColors[getColorsIndex(x, y)] = Color.blue;
+                    _pixelColors[curPixelIndex] = Color.blue;
                 }
                 else if (blackNeibors > 0)
                 {
@@ -166,14 +182,14 @@ public class UpdateWorld : MonoBehaviour
                         //set to green
                         //Residential Property
                         dirty = true;
-                        _pixelColors[getColorsIndex(x, y)] = Color.green;
+                        _pixelColors[curPixelIndex] = Color.green;
                     }
                     else if (curPxColor == Color.yellow)
                     {
                         //if near a black cell but the cell is already yellow
                         //Mining Property
                         dirty = true;
-                        _pixelColors[getColorsIndex(x, y)] = Color.magenta;
+                        _pixelColors[curPixelIndex] = Color.magenta;
 
                     }
                 }
@@ -186,7 +202,7 @@ public class UpdateWorld : MonoBehaviour
                         curPxColor == Color.magenta)
                     {
                         dirty = true;
-                        _pixelColors[getColorsIndex(x, y)] = Color.white;
+                        _pixelColors[curPixelIndex] = Color.white;
                     }
                 }
             }
