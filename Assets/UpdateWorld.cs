@@ -7,10 +7,9 @@ public class UpdateWorld : MonoBehaviour
 {
     [SerializeField] GameObject _world;
 
-    //Vector2 _lastPoint = Vector2.zero;
-    (int x, int y) _lastPoint = (0,0);
+    (int x, int y) _lastPoint = (0, 0);
     (int x, int y) _curPoint;
-    
+
     Texture2D _texture; //Texture should be set to Read/Write and RGBA32bit in Inspector with no mipmaps
 
     Material _rendererMaterial;
@@ -22,10 +21,10 @@ public class UpdateWorld : MonoBehaviour
     void Start()
     {
         Application.targetFrameRate = 150;
-        
+
         // get the material of the world
         _rendererMaterial = _world.GetComponent<Renderer>().material;
-        
+
         // duplicate original texture
         _texture = Instantiate(_rendererMaterial.mainTexture) as Texture2D;
 
@@ -35,15 +34,15 @@ public class UpdateWorld : MonoBehaviour
         _pixelColors = new Color[_texture.width * _texture.height];
 
         Debug.Log($"texture w,h: {_texture.width},{_texture.height}");
-                
+
         // store yellow cells using perlin noise to create some patches of "minerals"
         for (int y = 0; y < _texture.height; y++)
         {
             for (int x = 0; x < _texture.width; x++)
             {
                 float perlinNoise = Mathf.PerlinNoise(x / 20.0f, y / 20.0f);
-                
-                int coord = y * _texture.width + x;
+
+                int coord = getColorsIndex(x, y);
 
                 _pixelColors[coord] = perlinNoise < 0.4 ? Color.yellow : Color.white;
             }
@@ -56,6 +55,11 @@ public class UpdateWorld : MonoBehaviour
         _texture.Apply();
     }
 
+    int getColorsIndex(int x, int y)
+    {
+        int index = y * _texture.width + x;
+        return Math.Clamp(index, 0, _pixelColors.Length - 1);
+    }
 
     void Update()
     {
@@ -85,10 +89,9 @@ public class UpdateWorld : MonoBehaviour
                               _curPoint.y,
                               _lastPoint.x,
                               _lastPoint.y,
-                              Color.black,
-                              _texture);
-                
-                _lastPoint = new (_curPoint.x, _curPoint.y);
+                              Color.black);
+
+                _lastPoint = new(_curPoint.x, _curPoint.y);
             }
         }
 
@@ -98,17 +101,17 @@ public class UpdateWorld : MonoBehaviour
             {
                 dirty = true;
 
-                _texture.SetPixel((int)(_ray.textureCoord.x * _texture.width),
-                                   (int)(_ray.textureCoord.y * _texture.height), Color.white);
+                _pixelColors[getColorsIndex((int)(_ray.textureCoord.x * _texture.width), (int)(_ray.textureCoord.y * _texture.height))] = Color.white;
             }
         }
 
         if (dirty)
         {
-            dirty = SimulateWorld(_texture);
+            dirty = SimulateWorld();
 
             if (dirty)
             {
+                _texture.SetPixels(_pixelColors);
                 _texture.Apply();
             }
         }
@@ -120,7 +123,7 @@ public class UpdateWorld : MonoBehaviour
         return raycast;
     }
 
-    int CountNeighbourColor(int x, int y, Color col, Texture2D texture)
+    int CountNeighbourColor(int x, int y, Color col)
     {
         int count = 0;
         //loop through all 8 neighbouring cells and if their colour
@@ -130,30 +133,30 @@ public class UpdateWorld : MonoBehaviour
             for (int nx = 0 - 1; nx < 2; nx++)
             {
                 if (ny == 0 && nx == 0) continue; //ignore cell you are looking at neighbours
-                if (texture.GetPixel(x + nx, y + ny) == col)
+                if (_pixelColors[getColorsIndex(x + nx, y + ny)] == col)
                     count++;
             }
         }
         return count;
     }
 
-    bool SimulateWorld(Texture2D texture)
+    bool SimulateWorld()
     {
         bool dirty = false;
 
-        for (int y = 0; y < texture.height; y++)
+        for (int y = 0; y < _texture.height; y++)
         {
-            for (int x = 0; x < texture.width; x++)
+            for (int x = 0; x < _texture.width; x++)
             {
-                int blackNeibors = CountNeighbourColor(x, y, Color.black, texture);
-                Color curPxColor = texture.GetPixel(x, y);
+                int blackNeibors = CountNeighbourColor(x, y, Color.black);
+                Color curPxColor = _pixelColors[getColorsIndex(x, y)];
 
                 if (blackNeibors > 4)
                 {
                     //if a cell has more than 4 black neighbours make it blue
                     //Commercial Property
                     dirty = true;
-                    texture.SetPixel(x, y, Color.blue);
+                    _pixelColors[getColorsIndex(x, y)] = Color.blue;
                 }
                 else if (blackNeibors > 0)
                 {
@@ -163,29 +166,27 @@ public class UpdateWorld : MonoBehaviour
                         //set to green
                         //Residential Property
                         dirty = true;
-                        texture.SetPixel(x, y, Color.green);
+                        _pixelColors[getColorsIndex(x, y)] = Color.green;
                     }
-                    else if (curPxColor == Color.yellow) 
+                    else if (curPxColor == Color.yellow)
                     {
                         //if near a black cell but the cell is already yellow
                         //Mining Property
                         dirty = true;
-                        texture.SetPixel(x, y, Color.magenta);
+                        _pixelColors[getColorsIndex(x, y)] = Color.magenta;
 
                     }
-                } 
+                }
                 else if (blackNeibors == 0)
                 {
                     //if a cell is blue, green or magenta and has no black next to it then it should die = turn white)
                     //if road is taken away the cell should die/deallocate property
-                    Color pxColor = texture.GetPixel(x, y);
-
-                    if (pxColor == Color.green ||
-                        pxColor == Color.blue ||
-                        pxColor == Color.magenta)
+                    if (curPxColor == Color.green ||
+                        curPxColor == Color.blue ||
+                        curPxColor == Color.magenta)
                     {
                         dirty = true;
-                        texture.SetPixel(x, y, Color.white);
+                        _pixelColors[getColorsIndex(x, y)] = Color.white;
                     }
                 }
             }
@@ -195,12 +196,12 @@ public class UpdateWorld : MonoBehaviour
     }
 
 
-    
+
 
     //Draw a pixel by pixel line between two points
     //For more information on the algorithm see: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
     //DO NOT MODIFY OR OPTMISE
-    void DrawPixelLine(int x, int y, int x2, int y2, Color color, Texture2D texture)
+    void DrawPixelLine(int x, int y, int x2, int y2, Color color)
     {
         int w = x2 - x;
         int h = y2 - y;
@@ -220,7 +221,7 @@ public class UpdateWorld : MonoBehaviour
         int numerator = longest >> 1;
         for (int i = 0; i <= longest; i++)
         {
-            texture.SetPixel(x, y, color);
+            _pixelColors[getColorsIndex(x, y)] = color;
             numerator += shortest;
             if (!(numerator < longest))
             {
