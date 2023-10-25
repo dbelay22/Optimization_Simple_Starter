@@ -110,13 +110,11 @@ public class UpdateWorld : MonoBehaviour
 
         if (dirty)
         {
-            dirty = SimulateWorld();
-
-            if (dirty)
-            {
-                _texture.SetPixels(_pixelColors);
-                _texture.Apply();
-            }
+            SimulateWorld();
+            
+            _texture.SetPixels(_pixelColors);
+            
+            _texture.Apply();
         }
     }
 
@@ -148,10 +146,8 @@ public class UpdateWorld : MonoBehaviour
         return count;
     }
 
-    bool SimulateWorld()
+    void SimulateWorld()
     {
-        bool dirty = false;
-
         for (int y = _lastRaycastPoint.y - 1; y < _lastRaycastPoint.y + 2; y++)
         {
             for (int x = _lastRaycastPoint.x - 1; x < _lastRaycastPoint.x + 2; x++)
@@ -164,7 +160,6 @@ public class UpdateWorld : MonoBehaviour
                 {
                     //if a cell has more than 4 black neighbours make it blue
                     //Commercial Property
-                    dirty = true;
                     _pixelColors[curPixelIndex] = Color.blue;
                 }
                 else if (blackNeibors > 0)
@@ -174,14 +169,12 @@ public class UpdateWorld : MonoBehaviour
                         //if a cell has a black neighbour and is not black itself
                         //set to green
                         //Residential Property
-                        dirty = true;
                         _pixelColors[curPixelIndex] = Color.green;
                     }
                     else if (curPxColor == Color.yellow)
                     {
                         //if near a black cell but the cell is already yellow
                         //Mining Property
-                        dirty = true;
                         _pixelColors[curPixelIndex] = Color.magenta;
 
                     }
@@ -194,14 +187,11 @@ public class UpdateWorld : MonoBehaviour
                         curPxColor == Color.blue ||
                         curPxColor == Color.magenta)
                     {
-                        dirty = true;
                         _pixelColors[curPixelIndex] = Color.white;
                     }
                 }
             }
         }
-
-        return dirty;
     }
 
 
