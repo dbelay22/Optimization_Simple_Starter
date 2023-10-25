@@ -138,7 +138,7 @@ public class UpdateWorld : MonoBehaviour
             for (int nx = 0 - 1; nx < 2; nx++)
             {
                 if (ny == 0 && nx == 0) continue; //ignore cell you are looking at neighbours
-                if (_pixelColors[getColorsIndex(x + nx, y + ny)].Equals(col)) {
+                if (_pixelColors[getColorsIndex(x + nx, y + ny)] == col) {
                     count++;
                 }
             }
