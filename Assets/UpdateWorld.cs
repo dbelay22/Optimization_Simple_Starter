@@ -64,14 +64,7 @@ public class UpdateWorld : MonoBehaviour
     {
         int index = y * _textureSize.w + x;
         return Math.Clamp(index, 0, _pixelColors.Length - 1);
-    }
-
-    Color getPixelColorAt(int x, int y)
-    {
-        int index = y * _textureSize.w + x;
-        index = Math.Clamp(index, 0, _pixelColors.Length - 1);
-        return _pixelColors[index];
-    }
+    }    
 
     void Update()
     {
@@ -147,7 +140,7 @@ public class UpdateWorld : MonoBehaviour
             for (int nx = 0 - 1; nx < 2; nx++)
             {
                 if (ny == 0 && nx == 0) continue; //ignore cell you are looking at neighbours
-                if (getPixelColorAt(x + nx, y + ny).Equals(col)) {
+                if (_pixelColors[getColorsIndex(x + nx, y + ny)].Equals(col)) {
                     count++;
                 }
             }
